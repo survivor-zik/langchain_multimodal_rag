@@ -6,4 +6,3 @@ IMAGE_SUMMARIZER = """You are an assistant tasked with summarizing images for re
     These summaries will be embedded and used to retrieve the raw image. \
     Give a concise summary of the image that is well optimized for retrieval."""
 
-RETRIEVAL_PROMPT

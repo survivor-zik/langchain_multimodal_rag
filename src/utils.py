@@ -1,10 +1,12 @@
 from langchain.text_splitter import CharacterTextSplitter
 import base64
 import os
+
+from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.messages import HumanMessage
+from langchain_openai import OpenAIEmbeddings
 from langchain_openai.chat_models import ChatOpenAI
 from src.prompts import IMAGE_SUMMARIZER
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from PIL import Image
 import io
 import re
@@ -105,6 +107,10 @@ def image_summarize(img_base64, prompt):
         ]
     )
     return msg.content
+
+
+def create_return_vectorstore(collection_name: str):
+    return Chroma(collection_name="rag", embedding_function=OpenAIEmbeddings(),persist_directory="/database")
 
 
 def generate_img_summaries(path):

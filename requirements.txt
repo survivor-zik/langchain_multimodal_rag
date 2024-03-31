@@ -1,0 +1,15 @@
+chromadb==0.4.24
+langchain==0.1.13
+langchain-community==0.0.29
+langchain-core==0.1.36
+langchain-experimental==0.0.55
+langchain-text-splitters==0.0.1
+langsmith==0.1.38
+openai==1.14.3
+unstructured[all-docs]
+pillow
+pydantic
+lxml
+matplotlib
+tiktoken
+spacy==3.7.4

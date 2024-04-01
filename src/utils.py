@@ -2,7 +2,7 @@ from langchain.retrievers import MultiVectorRetriever
 from langchain.text_splitter import CharacterTextSplitter
 import base64
 import os
-from typing import Optional
+from typing import Optional, Tuple
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.messages import HumanMessage
 from langchain_openai import OpenAIEmbeddings
@@ -14,6 +14,7 @@ import re
 from IPython.display import HTML, display
 from langchain_core.documents import Document
 from langchain.storage import LocalFileStore
+from src.prompts import INPUT_PROMPT
 
 
 def encode_image(image_path):
@@ -43,11 +44,11 @@ def is_image_data(b64data):
             if header.startswith(sig):
                 return True
         return False
-    except Exception:
+    except:
         return False
 
 
-def resize_base64_image(base64_string, size=(128, 128)):
+def resize_base64_image(base64_string, size: Optional[Tuple] = (128, 128)):
     """
     Resize an image encoded as a Base64 string
     """
@@ -114,7 +115,7 @@ def image_summarize(img_base64, prompt):
 def return_retriever(collection_name: Optional[str] = 'rag'):
     file_store = LocalFileStore("/store")
     id_key = "doc_id"
-    vector_store = Chroma(collection_name=collection_name, embedding_function=OpenAIEmbeddings,
+    vector_store = Chroma(collection_name=collection_name, embedding_function=OpenAIEmbeddings(),
                           persist_directory='/database')
     retriever = MultiVectorRetriever(
         vectorstore=vector_store,
@@ -122,7 +123,6 @@ def return_retriever(collection_name: Optional[str] = 'rag'):
         id_key=id_key,
     )
     return retriever
-
 
 
 def generate_img_summaries(path):
@@ -148,3 +148,33 @@ def return_splitter():
     return CharacterTextSplitter.from_tiktoken_encoder(
         chunk_size=4096, chunk_overlap=0
     )
+
+
+def img_prompt_func(data_dict):
+    """
+    Join the context into a single string
+    """
+    formatted_texts = "\n".join(data_dict["context"]["texts"])
+    messages = []
+
+    # Adding image(s) to the messages if present
+    if data_dict["context"]["images"]:
+        for image in data_dict["context"]["images"]:
+            image_message = {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{image}"},
+            }
+            messages.append(image_message)
+
+    # Adding the text for analysis
+    text_message = {
+        "type": "text",
+        "text": (
+            f"{INPUT_PROMPT}"
+            f"User-provided question: {data_dict['question']}\n\n"
+            "Text and / or tables:\n"
+            f"{formatted_texts}"
+        ),
+    }
+    messages.append(text_message)
+    return [HumanMessage(content=messages)]

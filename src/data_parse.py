@@ -1,13 +1,8 @@
 from unstructured.partition.pdf import partition_pdf
-from src.utils import return_splitter
-from src.chatbot import Chatbot
+from src.utils import return_splitter, return_retriever, generate_img_summaries
 import uuid
-
-from langchain.retrievers.multi_vector import MultiVectorRetriever
-from langchain.storage import InMemoryStore
-from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
+from src.chatbot import Chatbot
 
 
 def extract_pdf_elements(path, fname):
@@ -15,8 +10,10 @@ def extract_pdf_elements(path, fname):
     Extract images, tables, and chunk text from a PDF file.
     path: File path, which is used to dump images (.jpg)
     fname: File name
+    Categorize extracted elements from a PDF into tables and texts.
+    raw_pdf_elements: List of unstructured.documents.elements
     """
-    return partition_pdf(
+    raw_pdf_elements = partition_pdf(
         filename=path + fname,
         extract_images_in_pdf=False,
         infer_table_structure=True,
@@ -26,13 +23,6 @@ def extract_pdf_elements(path, fname):
         combine_text_under_n_chars=2000,
         image_output_dir_path=path,
     )
-
-
-def categorize_elements(raw_pdf_elements):
-    """
-    Categorize extracted elements from a PDF into tables and texts.
-    raw_pdf_elements: List of unstructured.documents.elements
-    """
     tables = []
     texts = []
     for element in raw_pdf_elements:
@@ -50,67 +40,43 @@ def transform_docs(texts):
     return texts_4k_token
 
 
-def generate_text_summaries(texts, tables, summarize_texts=False):
-    """
-    Summarize text elements
-    texts: List of str
-    tables: List of str
-    summarize_texts: Bool to summarize texts
-    """
-    chat = Chatbot()
-
-    text_summaries = []
-    table_summaries = []
-
-    # Apply to text if texts are provided and summarization is requested
-    if texts and summarize_texts:
-        text_summaries = chat.summarize_chain.batch(texts, {"max_concurrency": 5})
-    elif texts:
-        text_summaries = texts
-
-    # Apply to tables if tables are provided
-    if tables:
-        table_summaries = chat.summarize_chain.batch(tables, {"max_concurrency": 5})
-
-    return text_summaries, table_summaries
+def add_documents(retriever, doc_summaries, doc_contents):
+    doc_ids = [str(uuid.uuid4()) for _ in doc_contents]
+    summary_docs = [
+        Document(page_content=s, metadata={"doc_id": doc_ids[i]})
+        for i, s in enumerate(doc_summaries)
+    ]
+    retriever.vectorstore.add_documents(summary_docs)
+    retriever.docstore.mset(list(zip(doc_ids, doc_contents)))
 
 
-def create_multi_vector_retriever(
-        vectorstore, text_summaries, texts, table_summaries, tables, image_summaries, images
+def ingestion(
+        text_summaries, texts, table_summaries, tables, image_summaries, images
 ):
     """
     Create retriever that indexes summaries, but returns raw images or texts
     """
 
     # Initialize the storage layer
-    store = InMemoryStore()
-    id_key = "doc_id"
+    retriever = return_retriever()
 
-    # Create the multi-vector retriever
-    retriever = MultiVectorRetriever(
-        vectorstore=vectorstore,
-        docstore=store,
-        id_key=id_key,
+    if text_summaries:
+        add_documents(retriever, text_summaries, texts)
+    if table_summaries:
+        add_documents(retriever, table_summaries, tables)
+    if image_summaries:
+        add_documents(retriever, image_summaries, images)
+
+
+def workable(path: str = "./cj/", fname: str = "cj.pdf"):
+    texts, tables = extract_pdf_elements(path, fname)
+    transformed_docs = transform_docs(texts=texts)
+    chat = Chatbot()
+    text_summaries, table_summaries = chat.generate_text_summaries(
+        transformed_docs, tables, summarize_texts=True
     )
+    img_base64_list, image_summaries = generate_img_summaries(path)
 
-    def add_documents(retriever, doc_summaries, doc_contents):
-        doc_ids = [str(uuid.uuid4()) for _ in doc_contents]
-        summary_docs = [
-            Document(page_content=s, metadata={id_key: doc_ids[i]})
-            for i, s in enumerate(doc_summaries)
-        ]
-        retriever.vectorstore.add_documents(summary_docs)
-        retriever.docstore.mset(list(zip(doc_ids, doc_contents)))
+    ingestion(text_summaries=text_summaries, texts=texts, table_summaries=table_summaries, tables=tables,
+              image_summaries=image_summaries, images=img_base64_list)
 
-        # Add texts, tables, and images
-        # Check that text_summaries is not empty before adding
-        if text_summaries:
-            add_documents(retriever, text_summaries, texts)
-        # Check that table_summaries is not empty before adding
-        if table_summaries:
-            add_documents(retriever, table_summaries, tables)
-        # Check that image_summaries is not empty before adding
-        if image_summaries:
-            add_documents(retriever, image_summaries, images)
-
-    return retriever

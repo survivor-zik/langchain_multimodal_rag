@@ -13,3 +13,4 @@ lxml
 matplotlib
 tiktoken
 spacy==3.7.4
+python-poppler

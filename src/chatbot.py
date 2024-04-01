@@ -3,6 +3,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai.chat_models import ChatOpenAI
 from src.prompts import SUMMARIZER
+from src.utils import create_return_vectorstore
 
 
 class Chatbot:
@@ -10,5 +11,4 @@ class Chatbot:
         prompt = ChatPromptTemplate.from_template(SUMMARIZER)
         model = ChatOpenAI(temperature=0, model="gpt-4")
         self.summarize_chain = {"element": lambda x: x} | prompt | model | StrOutputParser()
-
-
+        vector_store = create_return_vectorstore()

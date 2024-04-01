@@ -1,7 +1,8 @@
+from langchain.retrievers import MultiVectorRetriever
 from langchain.text_splitter import CharacterTextSplitter
 import base64
 import os
-
+from typing import Optional
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.messages import HumanMessage
 from langchain_openai import OpenAIEmbeddings
@@ -12,6 +13,7 @@ import io
 import re
 from IPython.display import HTML, display
 from langchain_core.documents import Document
+from langchain.storage import LocalFileStore
 
 
 def encode_image(image_path):
@@ -83,7 +85,7 @@ def split_image_text_types(docs):
 
 
 def plt_img_base64(img_base64):
-    """Disply base64 encoded string as image"""
+    """Display base64 encoded string as image"""
     # Create an HTML img tag with the base64 string as the source
     image_html = f'<img src="data:image/jpeg;base64,{img_base64}" />'
     # Display the image by rendering the HTML
@@ -109,8 +111,18 @@ def image_summarize(img_base64, prompt):
     return msg.content
 
 
-def create_return_vectorstore(collection_name: str):
-    return Chroma(collection_name="rag", embedding_function=OpenAIEmbeddings(),persist_directory="/database")
+def return_retriever(collection_name: Optional[str] = 'rag'):
+    file_store = LocalFileStore("/store")
+    id_key = "doc_id"
+    vector_store = Chroma(collection_name=collection_name, embedding_function=OpenAIEmbeddings,
+                          persist_directory='/database')
+    retriever = MultiVectorRetriever(
+        vectorstore=vector_store,
+        docstore=file_store,
+        id_key=id_key,
+    )
+    return retriever
+
 
 
 def generate_img_summaries(path):

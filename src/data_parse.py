@@ -1,3 +1,4 @@
+import pytesseract
 from unstructured.partition.pdf import partition_pdf
 from src.utils import return_splitter, return_retriever, generate_img_summaries
 import uuid
@@ -12,7 +13,13 @@ def extract_pdf_elements(path, fname):
     fname: File name
     Categorize extracted elements from a PDF into tables and texts.
     raw_pdf_elements: List of unstructured.documents.elements
+    download tesseract from
+    https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-5.3.3.20231005.exe
+    and follow this
+    https://stackoverflow.com/questions/50951955/pytesseract-tesseractnotfound-error-tesseract-is-not-installed-or-its-not-i
     """
+    # pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
     raw_pdf_elements = partition_pdf(
         filename=path + fname,
         extract_images_in_pdf=False,
@@ -21,8 +28,9 @@ def extract_pdf_elements(path, fname):
         max_characters=4000,
         new_after_n_chars=3800,
         combine_text_under_n_chars=2000,
-        image_output_dir_path=path,
+        image_output_dir_path=path
     )
+
     tables = []
     texts = []
     for element in raw_pdf_elements:
@@ -79,4 +87,3 @@ def workable(path: str = "./cj/", fname: str = "cj.pdf"):
 
     ingestion(text_summaries=text_summaries, texts=texts, table_summaries=table_summaries, tables=tables,
               image_summaries=image_summaries, images=img_base64_list)
-

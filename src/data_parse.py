@@ -22,7 +22,7 @@ def extract_pdf_elements(path, fname):
 
     raw_pdf_elements = partition_pdf(
         filename=path + fname,
-        extract_images_in_pdf=False,
+        extract_images_in_pdf=True,
         infer_table_structure=True,
         chunking_strategy="by_title",
         max_characters=4000,
@@ -49,13 +49,18 @@ def transform_docs(texts):
 
 
 def add_documents(retriever, doc_summaries, doc_contents):
-    doc_ids = [str(uuid.uuid4()) for _ in doc_contents]
-    summary_docs = [
-        Document(page_content=s, metadata={"doc_id": doc_ids[i]})
-        for i, s in enumerate(doc_summaries)
-    ]
-    retriever.vectorstore.add_documents(summary_docs)
-    retriever.docstore.mset(list(zip(doc_ids, doc_contents)))
+    try:
+        doc_ids = [str(uuid.uuid4()) for _ in doc_contents]
+        summary_docs = [
+            Document(page_content=s, metadata={"doc_id": doc_ids[i]})
+            for i, s in enumerate(doc_summaries)
+        ]
+        
+        retriever.vectorstore.add_documents(summary_docs)
+        retriever.docstore.mset(list(zip(doc_ids, doc_contents)))
+    except Exception as e:
+        print(doc_contents)
+        print(e)
 
 
 def ingestion(
